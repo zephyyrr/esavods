@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+	<head>
+	<script   src="https://code.jquery.com/jquery-2.2.3.js"   integrity="sha256-laXWtGydpwqJ8JA+X9x2miwmaiKhn8tVmOVEigRNtP4="   crossorigin="anonymous"></script>
+	<script   src="/static/debug.js"></script> 
+	</head>
+
+	<body>
+	Debug Mode:
+	<div>
+		<input id="path" value="/events">
+		<button type="submit" onclick="execute('#path');">GET</button>
+	</div>
+	<pre style="border: 1px solid black; margin: 20px; display: block; height: 20rem;" id="result">
+	</pre>
+
+	<script>
+		function execute(input) {
+			var target = $(input)[0].value;
+			$.ajax({
+				type: "GET",
+				url: target,
+				dataType: "json"
+			}).done(function(data) {
+				$("#result")[0].innerHTML = JSON.stringify(data, null, 4);
+			})
+		}
+	</script>
+	</body>
+</html>
