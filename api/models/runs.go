@@ -9,7 +9,7 @@ import (
 type Runs []Run
 
 type Run struct {
-	Id       Id            `json:"-"`
+	Id       Id            `json:"id"`
 	Game     string        `json:"game"`
 	Players  PlayerList    `json:"players"`
 	Category string        `json:"category"`
