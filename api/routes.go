@@ -14,7 +14,6 @@ func GetEvents(c echo.Context) error {
 		err := tx.ForEach(func(name []byte, b *bolt.Bucket) (err error) {
 			var event Event
 			err = event.FromBolt(b)
-			log.WithField("error", err).WithField("event", event).Debug("Fetched event")
 			events = append(events, event)
 			return
 		})
@@ -70,17 +69,18 @@ func PostEvents(c echo.Context) error {
 }
 
 func GetRuns(c echo.Context) error {
-	return db.Events.View(func(tx *bolt.Tx) error {
+	return db.Runs.View(func(tx *bolt.Tx) error {
 		runs := make([]Run, 0, 64) //Preallocate space for 64 runs.
 
 		err := tx.ForEach(func(name []byte, b *bolt.Bucket) (err error) {
 			var run Run
+			log.WithField("id", name).WithField("bucket", b).Debug("Restoring run id.")
 			err = run.FromBolt(b)
 			runs = append(runs, run)
 			return
 		})
 		if err != nil {
-
+			return Error{HttpStatus: http.StatusInternalServerError, Message: "Error fetching runs", Data: runs, Internal: err}
 		}
 		return c.JSON(http.StatusOK, runs)
 	})
@@ -90,20 +90,26 @@ func PostRuns(c echo.Context) error {
 	var r Run
 	c.Bind(&r)
 
+	if r.Id != "" {
+		return Error{HttpStatus: http.StatusBadRequest, Message: "Id must not be set when creating a new run."}
+	}
+
 	if r.Game == "" || r.Event == "" || r.Category == "" {
 		return Error{HttpStatus: http.StatusBadRequest, Message: "Game, Event and Category is required."}
 	}
 
 	err := db.Runs.Update(func(tx *bolt.Tx) error {
-		for {
-			r.Id = NewID()
-			if tx.Bucket([]byte(r.Id)) == nil { //Check for existance
-				break
+		for { //Continue looping until we have a unique id
+			r.Id = NewID() // Generate a new random ID for this run.
+			bucket, err := tx.CreateBucket([]byte(r.Id))
+			if err == bolt.ErrBucketExists {
+				continue
+			} else if err != nil {
+				return Error{HttpStatus: http.StatusInternalServerError, Message: "Unable to store run", Data: r, Internal: err}
 			}
+			log.WithField("run", r).Debug("Storing run")
+			return r.ToBolt(bucket)
 		}
-		bucket, _ := tx.CreateBucket([]byte(r.Id))
-		return r.ToBolt(bucket)
-
 	})
 
 	if err != nil {
