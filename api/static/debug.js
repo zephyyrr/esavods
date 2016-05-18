@@ -19,9 +19,9 @@ ESAVods = function($) {
 
 	var fillRuns = function() {
 		var runs = [
-			{game: "Golden Sun", players:["BaalNocturno"], category: "100%", type: "normal", console: "Gameboy Advance", length: "2h10m4s", event: "ESA2014", tags: ["test", "example"], vods: []},
-			{game: "Final Fantas: Crystal Chronicles", players:["Cereth", "Grokken", "MLSTRM", "Neviutz"], category: "All Dungeons", type: "co-op", console: "Gamecube", length: "1h40m", event: "ESA2015", tags: ["test", "demo"], vods: []},
-			{game: "Illusion HD", players:["Grukk", "KrazyRasmus", "MaxieTheHatter","Pogington"], category: "any%", type: "race", console: "PC", length: "32m16s", event: "ESA2015", tags: ["test", "example"], vods: []}
+			{game: "Golden Sun", players:["BaalNocturno"], category: "100%", type: "normal", console: "Gameboy Advance", length: (2*3600+10*60+4)*1000, event: "ESA2014", tags: ["test", "example"], vods: {"youtube": "https://www.youtube.com/watch?v=jvhrfc4_PBQ"}},
+			{game: "Final Fantas: Crystal Chronicles", players:["Cereth", "Grokken", "MLSTRM", "Neviutz"], category: "All Dungeons", type: "co-op", console: "Gamecube", length: (1*3600+40*60+0)*1000, event: "ESA2015", tags: ["test", "demo"], vods: {"youtube": "https://www.youtube.com/watch?v=wJMdyEftGJU"}},
+			{game: "Castle of Illusion HD", players:["Grukk", "KrazyRasmus", "MaxieTheHatter","Pogington"], category: "any%", type: "race", console: "PC", length: (0*3600+32*60+5)*1000, event: "ESA2015", tags: ["test", "example"], vods: {"youtube": "https://www.youtube.com/watch?v=jQZQrWaLMO0"}}
 		];
 		runs.forEach(function(events, i) {
 			$.ajax({
