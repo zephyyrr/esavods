@@ -74,7 +74,6 @@ func GetRuns(c echo.Context) error {
 
 		err := tx.ForEach(func(name []byte, b *bolt.Bucket) (err error) {
 			var run Run
-			log.WithField("id", name).WithField("bucket", b).Debug("Restoring run id.")
 			err = run.FromBolt(b)
 			runs = append(runs, run)
 			return
@@ -107,7 +106,6 @@ func PostRuns(c echo.Context) error {
 			} else if err != nil {
 				return Error{HttpStatus: http.StatusInternalServerError, Message: "Unable to store run", Data: r, Internal: err}
 			}
-			log.WithField("run", r).Debug("Storing run")
 			return r.ToBolt(bucket)
 		}
 	})
