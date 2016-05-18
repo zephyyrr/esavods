@@ -1,24 +1,23 @@
 package models
 
 import (
+	"encoding/binary"
 	"github.com/boltdb/bolt"
-	"net/url"
-	"time"
 )
 
 type Runs []Run
 
 type Run struct {
-	Id       Id            `json:"id"`
-	Game     string        `json:"game"`
-	Players  PlayerList    `json:"players"`
-	Category string        `json:"category"`
-	Type     string        `json:"type"`
-	Console  string        `json:"console"`
-	Length   time.Duration `json:"length"`
-	Event    string        `json:"event"`
-	Tags     []string      `json:"tags"`
-	Vods     []Vod         `json:"vods"`
+	Id       Id                  `json:"id"`
+	Game     string              `json:"game"`
+	Players  StringList          `json:"players"`
+	Category string              `json:"category"`
+	Type     string              `json:"type"`
+	Console  string              `json:"console"`
+	Length   MilliSecondDuration `json:"length"`
+	Event    string              `json:"event"`
+	Tags     StringList          `json:"tags"`
+	Vods     Vods                `json:"vods"`
 }
 
 func (r Run) ToBolt(bucket *bolt.Bucket) error {
@@ -28,10 +27,22 @@ func (r Run) ToBolt(bucket *bolt.Bucket) error {
 	bucket.Put([]byte("Category"), []byte(r.Category))
 	bucket.Put([]byte("Type"), []byte(r.Type))
 	bucket.Put([]byte("Console"), []byte(r.Console))
-	bucket.Put([]byte("Length"), []byte(r.Length.String()))
+
+	{ // Encode Length
+		size := binary.Size(r.Length)
+		buffer := make([]byte, size, size)
+		binary.PutVarint(buffer, int64(r.Length))
+		bucket.Put([]byte("Length"), buffer)
+	}
 
 	players, _ := bucket.CreateBucketIfNotExists([]byte("Players"))
 	r.Players.ToBolt(players)
+
+	tags, _ := bucket.CreateBucketIfNotExists([]byte("Tags"))
+	r.Tags.ToBolt(tags)
+
+	vods, _ := bucket.CreateBucketIfNotExists([]byte("Vods"))
+	r.Vods.ToBolt(vods)
 
 	return nil
 }
@@ -43,33 +54,66 @@ func (r *Run) FromBolt(bucket *bolt.Bucket) error {
 	r.Type = string(bucket.Get([]byte("Type")))
 	r.Console = string(bucket.Get([]byte("Console")))
 	r.Event = string(bucket.Get([]byte("Event")))
-	return r.Players.FromBolt(bucket.Bucket([]byte("Players")))
+
+	length, _ := binary.Varint(bucket.Get([]byte("Length")))
+	r.Length = MilliSecondDuration(length)
+
+	r.Players.FromBolt(bucket.Bucket([]byte("Players")))
+	r.Tags.FromBolt(bucket.Bucket([]byte("Tags")))
+	r.Vods.FromBolt(bucket.Bucket([]byte("Vods")))
+
+	return nil
 }
 
-type PlayerList []string
+type StringList []string
 
-func (pl PlayerList) ToBolt(bucket *bolt.Bucket) error {
+func (pl StringList) ToBolt(bucket *bolt.Bucket) error {
 	for i, player := range pl {
 		bucket.Put([]byte{byte(i)}, []byte(player))
 	}
-	bucket.Put([]byte("Length"), []byte{byte(len(pl))})
+	//bucket.Put([]byte("Length"), []byte{byte(len(pl))})
 	return nil
 }
 
-func (pl *PlayerList) FromBolt(bucket *bolt.Bucket) error {
-	size := bucket.Get([]byte("Length"))[0]
-	list := make(PlayerList, 0, size)
-	*pl = list
+func (pl *StringList) FromBolt(bucket *bolt.Bucket) error {
+	/*
+		size := bucket.Get([]byte("Length"))[0]
+		list := make(PlayerList, 0, size)
+		*pl = list
 
-	for i := byte(0); i < size; i++ {
-		player := string(bucket.Get([]byte{i}))
-		*pl = append(*pl, player)
+		for i := byte(0); i < size; i++ {
+			player := string(bucket.Get([]byte{i}))
+			*pl = append(*pl, player)
+		}
+
+		return nil
+	*/
+
+	bucket.ForEach(func(key, val []byte) error {
+		*pl = append(*pl, string(val))
+		return nil
+	})
+	return nil
+}
+
+type Vods map[Service]string
+
+func (vods Vods) ToBolt(bucket *bolt.Bucket) error {
+	for service, url := range vods {
+		bucket.Put([]byte(service), []byte(url))
 	}
+	return nil
+}
+
+func (vods *Vods) FromBolt(bucket *bolt.Bucket) error {
+	*vods = make(Vods)
+
+	bucket.ForEach(func(key, val []byte) error {
+		(*vods)[Service(key)] = string(val)
+		return nil
+	})
 
 	return nil
 }
 
-type Vod struct {
-	Service string  `json:"service"`
-	URL     url.URL `json:"url"`
-}
+type Service string
