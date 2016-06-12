@@ -11,20 +11,30 @@ import (
 	. "github.com/zephyyrr/esavods/api/models"
 	"math/big"
 	"time"
+	"os"
 )
 
 var (
 	server *echo.Echo
 	r      *render.Render
 	log    *logrus.Logger
+	DebugMode bool
 )
 
 func main() {
+	if os.Getenv("API_DEBUG") == "true" {
+		DebugMode = true;
+	}
+
 	log = &logrus.Logger{
 		Out:       logrus.StandardLogger().Out,
 		Formatter: new(logrus.TextFormatter),
 		Hooks:     make(logrus.LevelHooks),
-		Level:     logrus.DebugLevel,
+		Level:     logrus.ErrorLevel,
+	}
+
+	if DebugMode {
+		log.Level = logrus.DebugLevel
 	}
 
 	encoder = Json{}
@@ -52,10 +62,12 @@ func main() {
 	server.Use(echo.WrapMiddleware(echologrus(log)))
 	setupAPI()
 	server.Static("/static", "static/")
-	server.File("/debug", "debug.html")
+	if DebugMode {
+		server.File("/debug", "debug.html")
+	}
 	server.File("/favicon.ico", "static/favicon.ico")
 
-	s := standard.New(":3000")
+	s := standard.New(":" + os.Getenv("API_PORT"))
 	s.SetHandler(server)
 	graceful.ListenAndServe(s.Server, 3*time.Second)
 }
