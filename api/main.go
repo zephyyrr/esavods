@@ -12,19 +12,34 @@ import (
 	"math/big"
 	"time"
 	"os"
+	"path"
 )
 
 var (
 	server *echo.Echo
 	r      *render.Render
 	log    *logrus.Logger
+)
+
+//Config
+var (
 	DebugMode bool
+	StaticFolder string
+	Port int
+	DBFolder string
 )
 
 func main() {
 	if os.Getenv("API_DEBUG") == "true" {
 		DebugMode = true;
 	}
+
+	StaticFolder = os.Getenv("API_STATIC_FOLDER");
+	if StaticFolder == "" {
+		StaticFolder = "static/"
+	}
+
+	DBFolder = os.Getenv("API_DB_FOLDER");
 
 	log = &logrus.Logger{
 		Out:       logrus.StandardLogger().Out,
@@ -61,11 +76,11 @@ func main() {
 	server.SetHTTPErrorHandler(ErrorHandler)
 	server.Use(echo.WrapMiddleware(echologrus(log)))
 	setupAPI()
-	server.Static("/static", "static/")
+	server.Static("/static", StaticFolder)
 	if DebugMode {
-		server.File("/debug", "debug.html")
+		server.File("/debug", path.Join(StaticFolder,"debug.html"))
 	}
-	server.File("/favicon.ico", "static/favicon.ico")
+	server.File("/favicon.ico", path.Join(StaticFolder,"static/favicon.ico"))
 
 	s := standard.New(":" + os.Getenv("API_PORT"))
 	s.SetHandler(server)
