@@ -100,7 +100,7 @@ func ReadConfiguration() {
 	}
 
 	Https = os.Getenv("API_HTTPS") == "true"
-	CertFile = os.GetEnv("API_CERTFILE")
+	CertFile = os.Getenv("API_CERTFILE")
 	PrivKeyFile = os.Getenv("API_KEYFILE")
 }
 
