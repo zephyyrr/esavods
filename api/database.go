@@ -35,7 +35,7 @@ type multiopener struct {
 }
 
 func (opener *multiopener) Open(file string) (db *bolt.DB) {
-	db, err := bolt.Open(path.Join(DBFolder,file), 0600, nil)
+	db, err := bolt.Open(path.Join(DBFolder, file), 0600, nil)
 	if err != nil && opener.Error == nil {
 		opener.Error = err
 	}

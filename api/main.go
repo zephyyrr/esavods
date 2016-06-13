@@ -10,9 +10,9 @@ import (
 	"github.com/unrolled/render"
 	. "github.com/zephyyrr/esavods/api/models"
 	"math/big"
-	"time"
 	"os"
 	"path"
+	"time"
 )
 
 var (
@@ -21,25 +21,8 @@ var (
 	log    *logrus.Logger
 )
 
-//Config
-var (
-	DebugMode bool
-	StaticFolder string
-	Port int
-	DBFolder string
-)
-
 func main() {
-	if os.Getenv("API_DEBUG") == "true" {
-		DebugMode = true;
-	}
-
-	StaticFolder = os.Getenv("API_STATIC_FOLDER");
-	if StaticFolder == "" {
-		StaticFolder = "static/"
-	}
-
-	DBFolder = os.Getenv("API_DB_FOLDER");
+	ReadConfiguration()
 
 	log = &logrus.Logger{
 		Out:       logrus.StandardLogger().Out,
@@ -78,15 +61,50 @@ func main() {
 	setupAPI()
 	server.Static("/static", StaticFolder)
 	if DebugMode {
-		server.File("/debug", path.Join(StaticFolder,"debug.html"))
+		server.File("/debug", path.Join(StaticFolder, "debug.html"))
 	}
-	server.File("/favicon.ico", path.Join(StaticFolder,"static/favicon.ico"))
+	server.File("/favicon.ico", path.Join(StaticFolder, "static/favicon.ico"))
 
 	s := standard.New(":" + os.Getenv("API_PORT"))
 	s.SetHandler(server)
-	graceful.ListenAndServe(s.Server, 3*time.Second)
+
+	timelimit := 3 * time.Second
+	if Https {
+		graceful.ListenAndServeTLS(s.Server, CertFile, PrivKeyFile, timelimit)
+	} else {
+		graceful.ListenAndServe(s.Server, timelimit)
+	}
 }
 
+//Configuration
+var (
+	DebugMode    bool   //Activate various debugging features.
+	StaticFolder string //Folder for serving static content
+	Port         int    //Port to listen on.
+	DBFolder     string //Folder with database files.
+
+	Https       bool   //Use HTTPS instead.
+	CertFile    string //Certificate to use with HTTPS
+	PrivKeyFile string //Private Key File to use with HTTPS
+)
+
+// Reads the configuration of the server.
+// Currently uses environment variables.
+func ReadConfiguration() {
+	DebugMode = os.Getenv("API_DEBUG") == "true"
+
+	DBFolder = os.Getenv("API_DB_FOLDER")
+	StaticFolder = os.Getenv("API_STATIC_FOLDER")
+	if StaticFolder == "" {
+		StaticFolder = "static/"
+	}
+
+	Https = os.Getenv("API_HTTPS") == "true"
+	CertFile = os.GetEnv("API_CERTFILE")
+	PrivKeyFile = os.Getenv("API_KEYFILE")
+}
+
+//Installs all API functions.
 func setupAPI() {
 	server.Get("/events", GetEvents)
 	server.Get("/event/:name", GetEvent)
@@ -96,6 +114,7 @@ func setupAPI() {
 
 }
 
+//Error logging function.
 func echologrus(l *logrus.Logger) func(echo.Context) error {
 	return func(c echo.Context) error {
 		l.WithFields(logrus.Fields{
