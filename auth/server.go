@@ -19,6 +19,13 @@ func (key AuthKey) String() string {
     return string(key)
 }
 
+type KeyData struct {
+    AuthKey
+    Authenticater string
+    Valid bool
+    Expires time.Time
+}
+
 var (
     db *bolt.DB
 )
@@ -43,10 +50,23 @@ func main () {
 
 func CheckKey(c echo.Context) error {
     // Fetch key from DB
-    // Calculate validity
-    // Set validity on key
-    // Return key to requester.
-    return c.JSON(http.StatusNotImplemented, "false")
+    key := c.Param("key")
+    return db.View(func (tx *bolt.Tx) (err error) {
+        metadata := KeyData{
+            AuthKey: []byte(key),
+        }
+        b := tx.Bucket([]byte(key))
+        metadata.Authenticater = string(b.Get([]byte("Authenticater")))
+        metadata.Expires, err = time.Parse(time.RFC3339, string(b.Get( []byte("Expires"))))
+        if err != nil {
+            return err
+        }
+        // Set validity on key
+        metadata.Valid = metadata.Expires.Before(time.Now())
+
+        // Return key to requester.
+        return c.JSON(200, metadata)
+    })
 }
 
 func Authenticate(c echo.Context) error {
