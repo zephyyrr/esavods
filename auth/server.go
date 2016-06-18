@@ -23,11 +23,14 @@ type KeyData struct {
     AuthKey
     Authenticater string
     Valid bool
-    Expires time.Time
+    Expires *time.Time
 }
 
 var (
     db *bolt.DB
+
+    authenticater_bucket_key = []byte("Authenticater")
+    expires_bucket_key = []byte("Expires")
 )
 
 func main () {
@@ -41,7 +44,7 @@ func main () {
     server.Use(echo.WrapMiddleware(Protected))
 
     server.Get("/key/:key", CheckKey)
-    server.Post("/authenticate", Authenticate)
+    server.Get("/key", NewKey)
 
     s := standard.New(":" + strconv.Itoa(Port))
 	s.SetHandler(server)
@@ -56,24 +59,56 @@ func CheckKey(c echo.Context) error {
             AuthKey: []byte(key),
         }
         b := tx.Bucket([]byte(key))
-        metadata.Authenticater = string(b.Get([]byte("Authenticater")))
-        metadata.Expires, err = time.Parse(time.RFC3339, string(b.Get( []byte("Expires"))))
+        metadata.Authenticater = string(b.Get(authenticater_bucket_key))
+        metadata.Expires, err = time.Parse(time.RFC3339, string(b.Get( expires_bucket_key)))
         if err != nil {
             return err
         }
         // Set validity on key
-        metadata.Valid = metadata.Expires.Before(time.Now())
+        metadata.Valid = metadata.Expires == nil || // No expiration date.
+            metadata.Expires.Before(time.Now())
 
         // Return key to requester.
         return c.JSON(200, metadata)
     })
 }
 
-func Authenticate(c echo.Context) error {
+// Creates a new key on request.
+// Requres Query Parameter "authenticater" to be set to the unique authenticater id.
+// Returns error Bad Request if authenticater id is invalid.
+// Returns Confilct if the generated key is not unique.
+func NewKey(c echo.Context) error {
+    if c.QueryParam("authenticater") == "" {
+        return c.JSON(http.StatusBadRequest, "Invalid Authenticator ID")
+    }
     // Generate new key
+    key := KeyData {
+        AuthKey: GenerateAuthKey(),
+        Authenticater: c.QueryParam("authenticater"),
+        Expires: time.Now().Add(time.Hour*24),
+    }
     // Store in DB
+    err := db.Update(func (tx *bolt.Tx) {
+        b, err := tx.CreateBucket(key.AuthKey)
+        if err != nil {
+            return c.JSON(http.StatusConflict, "Key already exist. Please try again.")
+        }
+
+        b.Put(authenticater_bucket_key, []byte(key.Authenticater))
+        b.Put(expires_bucket_key, []byte(key.Expires.Format(time.RFC3339)))
+        return nil
+    })
+
+    if err != nil {
+        return err
+    }
+
     // Return to requester
-    return c.JSON(http.StatusNotImplemented, "ab2458fecb221")
+    return c.JSON(http.StatusOK, key)
+}
+
+func GenerateAuthKey() []byte { // Take more params once I know which.
+    return []byte("ab2458fecb221")
 }
 
 //Configuration
